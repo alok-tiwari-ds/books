@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Scanner Project Timeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+    </style>
+    <!-- Chosen Palette: Soothing Blues -->
+    <!-- Application Structure Plan: The application is a single-view SPA designed to present a clear project timeline using a Gantt chart. This structure was chosen because a Gantt chart is the most effective and universally understood method for visualizing project schedules. It allows the user to instantly grasp the sequence, duration, and overlap of tasks within distinct project phases. The user flow is simple: view the overall timeline and hover over specific tasks for detailed date information, which directly addresses the goal of making the project plan easily consumable. -->
+    <!-- Visualization & Content Choices: Report Info: Project plan checklist with tasks and time estimates. -> Goal: Visualize the project schedule over time. -> Viz/Presentation Method: Gantt Chart, implemented as a floating horizontal bar chart. -> Interaction: Tooltips on hover to show precise start/end dates and duration. -> Justification: This is the standard and most intuitive visualization for project management. It clearly communicates the project's structure and timing. -> Library/Method: Chart.js with the date-fns adapter. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto px-4 py-8 md:py-12">
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Book Scanner Project Plan</h1>
+            <p class="mt-2 text-lg text-slate-600">An 8-week interactive Gantt chart timeline.</p>
+        </header>
+
+        <main class="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div class="chart-container relative h-[80vh] min-h-[900px]">
+                <canvas id="ganttChart"></canvas>
+            </div>
+        </main>
+
+        <footer class="text-center mt-8 text-slate-500">
+            <p>Hover over a task to see its estimated duration.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tasks = [
+                // Phase 1
+                { week: 1, name: '1.1: Setup Environment', hours: 1.5 },
+                { week: 1, name: '1.2: Create "Hello World" App', hours: 1.5 },
+                { week: 1, name: '1.3: Design UI Layout', hours: 5 },
+                { week: 1, name: '1.4: Define DB Schema', hours: 3 },
+
+                { week: 2, name: '2.1: Implement Image Loading', hours: 2.5 },
+                { week: 2, name: '2.2: Integrate Interactive Canvas', hours: 6.5 },
+                { week: 2, name: '2.3: Implement Drawing Logic', hours: 4 },
+                { week: 2, name: '2.4: Send Coordinates to Backend', hours: 2.5 },
+
+                { week: 3, name: '3.1: Perspective Transform', hours: 4 },
+                { week: 3, name: '3.2: Integrate OCR', hours: 3.5 },
+                { week: 3, name: '3.3: Display OCR Results', hours: 2.5 },
+
+                { week: 4, name: '4.1: Populate Book Database', hours: 6 },
+                { week: 4, name: '4.2: Implement Fuzzy Matching', hours: 4 },
+                { week: 4, name: '4.3: Build Correction UI', hours: 6 },
+
+                // Phase 2
+                { week: 5, name: '5.1: CV Segmentation Pipeline', hours: 8 },
+                { week: 5, name: '5.2: Propose Segments in UI', hours: 5 },
+
+                { week: 6, name: '6.1: Design Data Collection', hours: 2.5 },
+                { week: 6, name: '6.2: Implement "Save Shelf" Logic', hours: 5.5 },
+                
+                { week: 7, name: '7.1: Add "Train Model" UI', hours: 3 },
+                { week: 7, name: '7.2: Create train.py Script', hours: 8 },
+                { week: 7, name: '7.3: Run Initial Model Training', hours: 5 },
+
+                { week: 8, name: '8.1: Add Model Selection UI', hours: 4 },
+                { week: 8, name: '8.2: Integrate ML Model', hours: 5.5 },
+                { week: 8, name: '8.3: Plan Next Iteration', hours: 1.5 },
+            ];
+
+            const startDate = new Date('2025-08-25T00:00:00Z');
+            const workHoursPerDay = 8;
+            
+            let dateCursor = new Date(startDate);
+            const taskData = [];
+            let lastWeek = 0;
+
+            function addWorkHours(date, hours) {
+                const msToAdd = hours * 60 * 60 * 1000;
+                let newDate = new Date(date.getTime() + msToAdd);
+
+                if (newDate.getUTCDay() === 6) { // Saturday
+                    newDate.setUTCDate(newDate.getUTCDate() + 2);
+                } else if (newDate.getUTCDay() === 0) { // Sunday
+                    newDate.setUTCDate(newDate.getUTCDate() + 1);
+                }
+                return newDate;
+            }
+            
+            tasks.forEach(task => {
+                if (task.week !== lastWeek) {
+                    const weekStartDate = new Date(startDate);
+                    weekStartDate.setUTCDate(startDate.getUTCDate() + (task.week - 1) * 7);
+                    dateCursor = weekStartDate;
+                    lastWeek = task.week;
+                }
+
+                const taskStart = new Date(dateCursor);
+                const taskEnd = addWorkHours(taskStart, task.hours);
+                
+                taskData.push({
+                    start: taskStart,
+                    end: taskEnd,
+                    name: task.name,
+                    duration: task.hours
+                });
+
+                dateCursor = taskEnd;
+            });
+
+            const phase1Color = 'rgba(59, 130, 246, 0.7)';
+            const phase2Color = 'rgba(16, 185, 129, 0.7)';
+            const phase1Border = 'rgba(59, 130, 246, 1)';
+            const phase2Border = 'rgba(16, 185, 129, 1)';
+
+            const datasets = [{
+                label: 'Phase 1: Core Application',
+                data: taskData.slice(0, 11).map(d => [d.start, d.end]),
+                backgroundColor: phase1Color,
+                borderColor: phase1Border,
+                borderWidth: 1,
+                barPercentage: 0.6,
+            }, {
+                label: 'Phase 2: Automation & ML',
+                data: taskData.slice(11).map(d => [d.start, d.end]),
+                backgroundColor: phase2Color,
+                borderColor: phase2Border,
+                borderWidth: 1,
+                barPercentage: 0.6,
+            }];
+
+            const ctx = document.getElementById('ganttChart').getContext('2d');
+            const ganttChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: tasks.map(t => t.name),
+                    datasets: datasets
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'week',
+                                tooltipFormat: 'MMM d, yyyy',
+                                displayFormats: {
+                                    week: 'MMM d'
+                                }
+                            },
+                            min: startDate,
+                            max: addWorkHours(startDate, 8 * 5 * 8), // 8 weeks
+                            position: 'top',
+                            grid: {
+                                color: 'rgba(203, 213, 225, 0.5)',
+                            },
+                            ticks: {
+                                color: '#475569',
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false,
+                            },
+                            ticks: {
+                                color: '#334155',
+                                font: {
+                                    size: 13
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#334155',
+                                font: {
+                                    size: 14,
+                                    weight: '500'
+                                },
+                                usePointStyle: true,
+                                boxWidth: 8
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const taskIndex = context.dataIndex;
+                                    const datasetIndex = context.datasetIndex;
+                                    const fullTaskIndex = datasetIndex === 0 ? taskIndex : 11 + taskIndex;
+                                    const task = taskData[fullTaskIndex];
+                                    const duration = task.duration;
+                                    const start = task.start.toLocaleDateString();
+                                    const end = task.end.toLocaleDateString();
+                                    return `Duration: ${duration} hrs | Start: ${start} | End: ${end}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
